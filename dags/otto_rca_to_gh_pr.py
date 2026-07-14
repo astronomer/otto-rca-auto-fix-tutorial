@@ -59,7 +59,7 @@ def otto_rca_to_gh_pr():
             deployment_id=os.environ["ASTRO_DEPLOYMENT_ID"],
             dag_id=parsed["source_dag_id"],
             run_id=parsed["source_run_id"],
-            token=os.environ["ASTRO_INVESTIGATION_TOKEN"],
+            token=os.environ["ASTRO_API_TOKEN"],
         )
 
     @task

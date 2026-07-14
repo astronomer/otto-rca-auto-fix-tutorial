@@ -13,7 +13,7 @@ def airflow_base() -> str:
 
 def airflow_token() -> str:
     env_token = os.environ.get("AIRFLOW_API_TOKEN") or os.environ.get(
-        "ASTRO_INVESTIGATION_TOKEN"
+        "ASTRO_API_TOKEN"
     )
     if env_token:
         return env_token
