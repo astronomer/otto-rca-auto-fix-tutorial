@@ -1,65 +1,9 @@
 import json
-import os
 from collections.abc import Iterator
 
 import requests
 
 ASTRO_API_BASE = "https://api.astronomer.io/labs/v1"
-USER_AGENT = "otto-rca-agent/1.0"
-
-
-def airflow_base() -> str:
-    base = os.environ["AIRFLOW_BASE_URL"].rstrip("/")
-    if not base.startswith(("http://", "https://")):
-        base = f"https://{base}"
-    return base
-
-
-def airflow_token() -> str:
-    env_token = os.environ.get("ASTRO_API_TOKEN")
-    if env_token:
-        return env_token
-
-    resp = requests.post(
-        f"{airflow_base()}/auth/token",
-        headers={"User-Agent": USER_AGENT},
-        json={
-            "username": os.environ.get("AIRFLOW_USERNAME", "admin"),
-            "password": os.environ.get("AIRFLOW_PASSWORD", "admin"),
-        },
-        timeout=15,
-    )
-    resp.raise_for_status()
-    payload = resp.json()
-    token = payload.get("access_token") or payload.get("jwt")
-    if not token:
-        raise RuntimeError(f"No token in /auth/token response: {payload}")
-    return token
-
-
-def airflow_headers() -> dict[str, str]:
-    return {
-        "Authorization": f"Bearer {airflow_token()}",
-        "Content-Type": "application/json",
-        "User-Agent": USER_AGENT,
-    }
-
-
-def get_dag_relative_fileloc(dag_id: str) -> str:
-    resp = requests.get(
-        f"{airflow_base()}/api/v2/dags/{dag_id}",
-        headers=airflow_headers(),
-        timeout=15,
-    )
-    if not resp.ok:
-        raise RuntimeError(
-            f"Airflow API GET /api/v2/dags/{dag_id} failed "
-            f"({resp.status_code}): {resp.text}"
-        )
-    fileloc = resp.json().get("relative_fileloc")
-    if not fileloc:
-        raise RuntimeError(f"No relative_fileloc for {dag_id}")
-    return fileloc
 
 
 def iter_sse_events(response: requests.Response) -> Iterator[tuple[str, str]]:

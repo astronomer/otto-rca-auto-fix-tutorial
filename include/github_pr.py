@@ -15,6 +15,34 @@ def github_headers() -> dict[str, str]:
     }
 
 
+def find_dag_file_path(repo: str, ref: str, dag_id: str, dags_dir: str = "dags") -> str:
+    resp = requests.get(
+        f"{GITHUB_API}/repos/{repo}/contents/{dags_dir}",
+        params={"ref": ref},
+        headers=github_headers(),
+        timeout=15,
+    )
+    resp.raise_for_status()
+    entries = [
+        entry
+        for entry in resp.json()
+        if entry["type"] == "file" and entry["name"].endswith(".py")
+    ]
+
+    exact_name = f"{dag_id}.py"
+    for entry in entries:
+        if entry["name"] == exact_name:
+            return entry["path"]
+
+    for entry in entries:
+        if dag_id in get_repo_file(repo, ref, entry["path"])["content"]:
+            return entry["path"]
+
+    raise RuntimeError(
+        f"No file under {dags_dir}/ in {repo}@{ref} defines dag_id {dag_id!r}"
+    )
+
+
 def find_open_pr(repo: str, label: str) -> dict | None:
     resp = requests.get(
         f"{GITHUB_API}/repos/{repo}/pulls",

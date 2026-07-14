@@ -5,7 +5,7 @@ import re
 from airflow.sdk import dag, task
 from airflow.sdk.exceptions import AirflowSkipException
 
-from include.airflow_rca import get_dag_relative_fileloc, request_diagnosis
+from include.airflow_rca import request_diagnosis
 from include.fix_edits import FixProposal, apply_edits, ruff_format
 from include.github_pr import (
     build_branch_name,
@@ -13,6 +13,7 @@ from include.github_pr import (
     create_branch,
     create_pull_request,
     ensure_label,
+    find_dag_file_path,
     find_open_pr,
     get_repo_file,
     render_pr_body,
@@ -66,10 +67,9 @@ def otto_rca_to_gh_pr():
 
     @task
     def fetch_source_file(parsed: dict) -> dict:
-        fileloc = get_dag_relative_fileloc(parsed["source_dag_id"]).removeprefix("/")
-        path = fileloc if fileloc.startswith("dags/") else f"dags/{fileloc}"
         repo = os.environ["GITHUB_REPO"]
         base_branch = os.environ.get("GITHUB_BASE_BRANCH", "main")
+        path = find_dag_file_path(repo, base_branch, parsed["source_dag_id"])
         file = get_repo_file(repo, base_branch, path)
         return {"path": path, "content": file["content"], "sha": file["sha"]}
 
@@ -95,11 +95,11 @@ def otto_rca_to_gh_pr():
         )
 
     @task
-    def open_pr(parsed: dict, diagnosis: dict, source: dict, proposal: dict) -> str:
+    def open_pr(parsed: dict, diagnosis: dict, source: dict, proposal: FixProposal) -> str:
         repo = os.environ["GITHUB_REPO"]
         base_branch = os.environ.get("GITHUB_BASE_BRANCH", "main")
 
-        patched = apply_edits(source["content"], proposal["edits"])
+        patched = apply_edits(source["content"], proposal.model_dump()["edits"])
         formatted = ruff_format(patched)
         branch = build_branch_name(parsed["source_dag_id"], parsed["source_run_id"])
 
