@@ -12,9 +12,7 @@ def airflow_base() -> str:
 
 
 def airflow_token() -> str:
-    env_token = os.environ.get("AIRFLOW_API_TOKEN") or os.environ.get(
-        "ASTRO_API_TOKEN"
-    )
+    env_token = os.environ.get("ASTRO_API_TOKEN")
     if env_token:
         return env_token
 
@@ -109,7 +107,9 @@ def request_diagnosis(
                 return json.loads(data)
             if event == "error":
                 raise RuntimeError(
-                    json.loads(data).get("message", "Investigation Agent returned an error")
+                    json.loads(data).get(
+                        "message", "Investigation Agent returned an error"
+                    )
                 )
             if event == "text_delta":
                 text_chunks.append(json.loads(data).get("text", ""))

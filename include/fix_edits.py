@@ -41,6 +41,10 @@ def ruff_format(content: str) -> str:
             check=True,
         )
         return proc.stdout
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError) as exc:
+    except (
+        subprocess.CalledProcessError,
+        subprocess.TimeoutExpired,
+        FileNotFoundError,
+    ) as exc:
         log.warning("ruff format failed (%s); using unformatted content", exc)
         return content

@@ -7,10 +7,28 @@ def create_tracking_labels():
     @task
     def get_orders():
         return [
-            {"order_id": "CM-2001", "destination": "Luna Depot", "status": "confirmed", "tracking_number": "LN-88213"},
-            {"order_id": "CM-2002", "destination": "Mars Colony", "status": "cancelled"},
-            {"order_id": "CM-2003", "destination": "Mars Colony", "status": "cancelled"},
-            {"order_id": "CM-2004", "destination": "Ceres Outpost", "status": "confirmed", "tracking_number": "CR-40217"},
+            {
+                "order_id": "CM-2001",
+                "destination": "Luna Depot",
+                "status": "confirmed",
+                "tracking_number": "LN-88213",
+            },
+            {
+                "order_id": "CM-2002",
+                "destination": "Mars Colony",
+                "status": "cancelled",
+            },
+            {
+                "order_id": "CM-2003",
+                "destination": "Mars Colony",
+                "status": "cancelled",
+            },
+            {
+                "order_id": "CM-2004",
+                "destination": "Ceres Outpost",
+                "status": "confirmed",
+                "tracking_number": "CR-40217",
+            },
         ]
 
     @task

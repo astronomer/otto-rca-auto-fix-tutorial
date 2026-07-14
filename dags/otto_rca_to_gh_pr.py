@@ -29,7 +29,9 @@ def otto_rca_to_gh_pr():
         message = str(conf.get("message", ""))
         match = re.search(r"for DAG\s+['\"]?([a-zA-Z0-9_.-]+)", message, re.IGNORECASE)
         if not match:
-            raise ValueError(f"Could not extract source dag_id from message: {message!r}")
+            raise ValueError(
+                f"Could not extract source dag_id from message: {message!r}"
+            )
 
         run_id = conf.get("airflowDagRunId")
         if not run_id:
