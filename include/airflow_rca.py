@@ -8,7 +8,10 @@ ASTRO_API_BASE = "https://api.astronomer.io/labs/v1"
 
 
 def airflow_base() -> str:
-    return os.environ["AIRFLOW_BASE_URL"].rstrip("/")
+    base = os.environ["AIRFLOW_BASE_URL"].rstrip("/")
+    if not base.startswith(("http://", "https://")):
+        base = f"https://{base}"
+    return base
 
 
 def airflow_token() -> str:
