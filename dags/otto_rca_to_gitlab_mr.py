@@ -7,21 +7,21 @@ from airflow.sdk.exceptions import AirflowSkipException
 
 from include.airflow_rca import request_diagnosis
 from include.fix_edits import FixProposal, apply_edits, ruff_format
-from include.github_pr import (
+from include.gitlab_mr import (
     build_branch_name,
     commit_file,
     create_branch,
-    create_pull_request,
+    create_merge_request,
     ensure_label,
     find_dag_file_path,
-    find_open_pr,
+    find_open_mr,
     get_repo_file,
-    render_pr_body,
+    render_mr_body,
 )
 
 
 @dag
-def otto_rca_to_gh_pr():
+def otto_rca_to_gitlab_mr():
     @task
     def parse_alert(**context) -> dict:
         dag_run = context.get("dag_run")
@@ -46,12 +46,12 @@ def otto_rca_to_gh_pr():
 
     @task
     def dedup_check(parsed: dict) -> dict:
-        repo = os.environ["GITHUB_REPO"]
+        project = os.environ["GITLAB_PROJECT"]
         label = f"auto-fix:{parsed['source_dag_id']}"
-        existing = find_open_pr(repo, label)
+        existing = find_open_mr(project, label)
         if existing:
             raise AirflowSkipException(
-                f"Open auto-fix PR already exists: #{existing['number']} ({existing['html_url']})"
+                f"Open auto-fix MR already exists: !{existing['iid']} ({existing['web_url']})"
             )
         return parsed
 
@@ -67,11 +67,11 @@ def otto_rca_to_gh_pr():
 
     @task
     def fetch_source_file(parsed: dict) -> dict:
-        repo = os.environ["GITHUB_REPO"]
-        base_branch = os.environ.get("GITHUB_BASE_BRANCH", "main")
-        path = find_dag_file_path(repo, base_branch, parsed["source_dag_id"])
-        file = get_repo_file(repo, base_branch, path)
-        return {"path": path, "content": file["content"], "sha": file["sha"]}
+        project = os.environ["GITLAB_PROJECT"]
+        base_branch = os.environ.get("GITLAB_BASE_BRANCH", "main")
+        path = find_dag_file_path(project, base_branch, parsed["source_dag_id"])
+        file = get_repo_file(project, base_branch, path)
+        return {"path": path, "content": file["content"]}
 
     @task.agent(
         llm_conn_id="pydanticai_default",
@@ -95,46 +95,47 @@ def otto_rca_to_gh_pr():
         )
 
     @task
-    def open_pr(parsed: dict, diagnosis: dict, source: dict, proposal: FixProposal) -> str:
-        repo = os.environ["GITHUB_REPO"]
-        base_branch = os.environ.get("GITHUB_BASE_BRANCH", "main")
+    def open_mr(parsed: dict, diagnosis: dict, source: dict, proposal: FixProposal) -> str:
+        project = os.environ["GITLAB_PROJECT"]
+        base_branch = os.environ.get("GITLAB_BASE_BRANCH", "main")
 
         patched = apply_edits(source["content"], proposal.model_dump()["edits"])
         formatted = ruff_format(patched)
         branch = build_branch_name(parsed["source_dag_id"], parsed["source_run_id"])
+        label = f"auto-fix:{parsed['source_dag_id']}"
 
-        create_branch(repo, base_branch, branch)
+        create_branch(project, base_branch, branch)
         commit_file(
-            repo,
+            project,
             branch,
             source["path"],
             formatted,
-            source["sha"],
-            f"[AUTOMATED PR] {diagnosis.get('title', 'Investigation Agent fix')}",
+            f"[AUTOMATED MR] {diagnosis.get('title', 'Investigation Agent fix')}",
         )
 
-        body = render_pr_body(
+        ensure_label(project, label)
+        body = render_mr_body(
             diagnosis,
             parsed["source_run_id"],
             parsed["source_dag_id"],
             parsed["alert_id"],
         )
-        pr = create_pull_request(
-            repo,
+        mr = create_merge_request(
+            project,
             base_branch,
             branch,
-            f"[AUTOMATED PR] {diagnosis.get('title', parsed['source_dag_id'])}",
+            f"[AUTOMATED MR] {diagnosis.get('title', parsed['source_dag_id'])}",
             body,
+            label,
         )
-        ensure_label(repo, pr["number"], f"auto-fix:{parsed['source_dag_id']}")
-        return pr["html_url"]
+        return mr["web_url"]
 
     parsed = parse_alert()
     parsed = dedup_check(parsed)
     diagnosis = get_diagnosis(parsed)
     source = fetch_source_file(parsed)
     proposal = propose_fix(diagnosis, source)
-    open_pr(parsed, diagnosis, source, proposal)
+    open_mr(parsed, diagnosis, source, proposal)
 
 
-otto_rca_to_gh_pr()
+otto_rca_to_gitlab_mr()
